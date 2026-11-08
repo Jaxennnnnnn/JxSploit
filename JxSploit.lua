@@ -1,6 +1,6 @@
 --[[
-	JxSploit UI by Jaxen  (v2)
-	Splash screen -> main menu (FE shit / TROLL / MISC)
+	JxSploit UI by Jaxen  (v3)
+	Splash -> main menu (FE shit / TROLL / MISC)
 	Category pages are empty: add your own buttons inside the Content frames.
 	RightShift hides/shows the UI.
 ]]
@@ -8,6 +8,7 @@
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local lp = Players.LocalPlayer
 
 ---------------------------------------------------------------- setup
@@ -36,11 +37,14 @@ gui.DisplayOrder = 999
 gui.Parent = root
 
 local WHITE = Color3.fromRGB(255, 255, 255)
-local BLUE = Color3.fromRGB(45, 110, 255)
+local BLUE = Color3.fromRGB(35, 90, 215)
+local V2 = Vector2.new
 
--- shrink the UI on small phone screens
 local cam = workspace.CurrentCamera
-local uiScale = cam and math.clamp(cam.ViewportSize.Y / 650, 0.6, 1) or 1
+local vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
+local uiScale = math.clamp(math.min(vp.Y / 480, vp.X / 820), 0.55, 1)
+
+local Quint, Quad, Out, In = Enum.EasingStyle.Quint, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, Enum.EasingDirection.In
 
 local function new(class, props, parent)
 	local o = Instance.new(class)
@@ -51,10 +55,11 @@ local function new(class, props, parent)
 	return o
 end
 
-local function tween(o, t, props)
-	local tw = TweenService:Create(o, TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
-	tw:Play()
-	return tw
+local function tw(o, t, props, style, dir, delay)
+	local info = TweenInfo.new(t, style or Quint, dir or Out, 0, false, delay or 0)
+	local x = TweenService:Create(o, info, props)
+	x:Play()
+	return x
 end
 
 local function label(parent, text, size, pos, sz, anchor)
@@ -65,7 +70,7 @@ local function label(parent, text, size, pos, sz, anchor)
 		TextSize = size,
 		TextColor3 = WHITE,
 		TextWrapped = true,
-		AnchorPoint = anchor or Vector2.new(0, 0),
+		AnchorPoint = anchor or V2(0, 0),
 		Position = pos,
 		Size = sz,
 	}, parent)
@@ -75,26 +80,45 @@ local function line(parent, pos, sz, anchor)
 	return new("Frame", {
 		BackgroundColor3 = BLUE,
 		BorderSizePixel = 0,
-		AnchorPoint = anchor or Vector2.new(0, 0),
+		AnchorPoint = anchor or V2(0, 0),
 		Position = pos,
 		Size = sz,
 	}, parent)
 end
 
--- Panel = invisible CanvasGroup (handles fade + rounded clipping)
---         + background frame with the gradient (ONLY the background gets the gradient)
---         + blue glow frames. Content goes on top as normal children.
+-- soft glow: transparency hits 1 halfway, so there are no hard edges
+local function glow(parent, color, anchor, pos, size, rot, a)
+	local f = new("Frame", {
+		BackgroundColor3 = color,
+		BorderSizePixel = 0,
+		AnchorPoint = anchor,
+		Position = pos,
+		Size = size,
+		ZIndex = 0,
+	}, parent)
+	new("UIGradient", {
+		Rotation = rot,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, a),
+			NumberSequenceKeypoint.new(0.5, 1),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	}, f)
+	return f
+end
+
+-- Panel: CanvasGroup (fade + clipping) -> gradient bg frame -> glows -> content
 local function makePanel(name, w, h)
 	local p = new("CanvasGroup", {
 		Name = name,
-		AnchorPoint = Vector2.new(0.5, 0.5),
+		AnchorPoint = V2(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromOffset(w, h),
 		BackgroundTransparency = 1,
 		GroupTransparency = 1,
 	}, gui)
-	new("UICorner", { CornerRadius = UDim.new(0, 34) }, p)
-	new("UIScale", { Scale = uiScale }, p)
+	new("UICorner", { CornerRadius = UDim.new(0, math.floor(h * 0.19)) }, p)
+	new("UIScale", { Name = "S", Scale = uiScale }, p)
 
 	local bg = new("Frame", {
 		Name = "Bg",
@@ -105,45 +129,16 @@ local function makePanel(name, w, h)
 	}, p)
 	new("UIGradient", {
 		Rotation = 90,
-		Color = ColorSequence.new(Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 20, 48)),
+		Color = ColorSequence.new(Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 12, 30)),
 	}, bg)
 
-	-- top-left glow
-	local g1 = new("Frame", {
-		BackgroundColor3 = Color3.fromRGB(20, 90, 255),
-		BorderSizePixel = 0,
-		Size = UDim2.fromScale(0.35, 0.32),
-		ZIndex = 0,
-	}, p)
-	new("UIGradient", {
-		Rotation = 45,
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.25),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-	}, g1)
-
-	-- right edge glow
-	local g2 = new("Frame", {
-		BackgroundColor3 = Color3.fromRGB(0, 70, 190),
-		BorderSizePixel = 0,
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.fromScale(1, 0),
-		Size = UDim2.fromScale(0.2, 1),
-		ZIndex = 0,
-	}, p)
-	new("UIGradient", {
-		Rotation = 0,
-		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(1, 0.45),
-		}),
-	}, g2)
-
+	glow(p, Color3.fromRGB(15, 70, 200), V2(0, 0), UDim2.fromScale(0, 0), UDim2.fromScale(0.3, 0.36), 45, 0.2)
+	glow(p, Color3.fromRGB(0, 40, 110), V2(1, 1), UDim2.fromScale(1, 1), UDim2.fromScale(0.55, 0.95), 215, 0.5)
+	glow(p, Color3.fromRGB(0, 30, 90), V2(1, 0.5), UDim2.fromScale(1, 0.5), UDim2.fromScale(0.2, 1), 180, 0.7)
 	return p
 end
 
----------------------------------------------------------------- splash
+---------------------------------------------------------------- splash (identical layout to reference)
 local messages = {
 	"How are you doing? I love u <3",
 	"Oxide? More like Ox-ide-n't :D",
@@ -158,40 +153,53 @@ local messages = {
 	"DECODE: Tkhox sc cesmsnkv! :D",
 }
 
-local splash = makePanel("Splash", 420, 220)
+local SW, SH = 620, 382
+local splash = makePanel("Splash", SW, SH)
 
-label(splash, "JxSploit", 54, UDim2.fromScale(0.5, 0.36), UDim2.fromScale(0.9, 0.3), Vector2.new(0.5, 0.5))
-line(splash, UDim2.fromScale(0.5, 0.56), UDim2.new(0.7, 0, 0, 2), Vector2.new(0.5, 0.5))
+local sTitle = label(splash, "JxSploit", math.floor(SH * 0.19), UDim2.fromScale(0.5, 0.41), UDim2.fromScale(0.9, 0.26), V2(0.5, 0.5))
+local sLine = line(splash, UDim2.fromScale(0.5, 0.54), UDim2.new(0, 0, 0, 2), V2(0.5, 0.5))
+local sSub = label(splash, "", math.floor(SH * 0.052), UDim2.fromScale(0.49, 0.6), UDim2.fromScale(0.17, 0.12), V2(0.5, 0.5))
+local sideL = line(splash, UDim2.fromScale(0.4, 0.6), UDim2.new(0, 0, 0, 2), V2(1, 0.5))
+local sideR = line(splash, UDim2.fromScale(0.58, 0.6), UDim2.new(0, 0, 0, 2), V2(0, 0.5))
+sSub.TextTransparency = 1
 
-local sub = label(splash, "", 20, UDim2.fromScale(0.5, 0.74), UDim2.fromScale(0.86, 0.3), Vector2.new(0.5, 0.5))
-local sideL = line(splash, UDim2.fromScale(0.05, 0.74), UDim2.new(0.25, 0, 0, 2), Vector2.new(0, 0.5))
-local sideR = line(splash, UDim2.fromScale(0.95, 0.74), UDim2.new(0.25, 0, 0, 2), Vector2.new(1, 0.5))
-
-local function setSub(text, flanked)
-	sub.Text = text
-	sideL.Visible = flanked
-	sideR.Visible = flanked
-	sub.Size = flanked and UDim2.fromScale(0.3, 0.3) or UDim2.fromScale(0.86, 0.3)
+local function showSub(text, flanked)
+	sSub.Text = text
+	local finalPos = flanked and UDim2.fromScale(0.49, 0.6) or UDim2.fromScale(0.5, 0.6)
+	sSub.Size = flanked and UDim2.fromScale(0.17, 0.12) or UDim2.fromScale(0.84, 0.2)
+	sSub.Position = finalPos + UDim2.fromScale(0, 0.03)
+	tw(sSub, 0.5, { TextTransparency = 0, Position = finalPos })
+	local w = flanked and UDim2.new(0.335, 0, 0, 2) or UDim2.new(0, 0, 0, 2)
+	tw(sideL, 0.6, { Size = w })
+	tw(sideR, 0.6, { Size = w })
 end
 
----------------------------------------------------------------- menu
-local menu = makePanel("Menu", 340, 300)
+local function hideSub()
+	tw(sSub, 0.25, { TextTransparency = 1, Position = sSub.Position - UDim2.fromScale(0, 0.03) }, Quad, In)
+	tw(sideL, 0.3, { Size = UDim2.new(0, 0, 0, 2) }, Quad, In)
+	tw(sideR, 0.3, { Size = UDim2.new(0, 0, 0, 2) }, Quad, In)
+end
+
+---------------------------------------------------------------- menu (identical layout to reference)
+local MW, MH = 560, 345
+local menu = makePanel("Menu", MW, MH)
 menu.Visible = false
 
--- drag handle (top strip)
 local handle = new("Frame", {
 	BackgroundTransparency = 1,
-	Size = UDim2.new(1, 0, 0, 66),
+	Size = UDim2.fromScale(1, 0.22),
 	Active = true,
 }, menu)
 
+-- smooth drag (lerped)
 do
-	local dragging, startInput, startPos
+	local dragging, startInput, startPos, target
 	handle.InputBegan:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
 			dragging = true
 			startInput = i.Position
 			startPos = menu.Position
+			target = menu.Position
 			i.Changed:Connect(function()
 				if i.UserInputState == Enum.UserInputState.End then
 					dragging = false
@@ -205,44 +213,47 @@ do
 			and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch)
 		then
 			local d = i.Position - startInput
-			menu.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+			target = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+		end
+	end)
+	RunService.RenderStepped:Connect(function(dt)
+		if target then
+			menu.Position = menu.Position:Lerp(target, math.clamp(dt * 18, 0, 1))
 		end
 	end)
 end
 
-local title = label(menu, "JxSploit", 34, UDim2.fromOffset(22, 14), UDim2.fromOffset(220, 40))
-title.TextXAlignment = Enum.TextXAlignment.Left
-line(menu, UDim2.fromOffset(22, 62), UDim2.new(0.75, 0, 0, 2))
+local mTitle = label(menu, "JxSploit", math.floor(MH * 0.125), UDim2.fromScale(0.075, 0.13), UDim2.fromScale(0.6, 0.16), V2(0, 0.5))
+mTitle.TextXAlignment = Enum.TextXAlignment.Left
+local mLine = line(menu, UDim2.fromScale(0.075, 0.205), UDim2.new(0, 0, 0, 2))
 
--- main category list
-local home = new("Frame", {
+-- home (category buttons)
+local home = new("CanvasGroup", {
 	BackgroundTransparency = 1,
-	Position = UDim2.fromOffset(22, 80),
-	Size = UDim2.new(1, -44, 1, -100),
+	Size = UDim2.fromScale(1, 1),
 }, menu)
-new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }, home)
 
--- category page
-local page = new("Frame", {
+-- page (category content)
+local page = new("CanvasGroup", {
 	BackgroundTransparency = 1,
-	Position = UDim2.fromOffset(22, 70),
-	Size = UDim2.new(1, -44, 1, -90),
+	Size = UDim2.fromScale(1, 1),
 	Visible = false,
+	GroupTransparency = 1,
 }, menu)
 
-local pageTitle = label(page, "", 26, UDim2.fromOffset(0, 0), UDim2.new(1, -90, 0, 36))
+local pageTitle = label(page, "", math.floor(MH * 0.085), UDim2.fromScale(0.075, 0.28), UDim2.fromScale(0.5, 0.12), V2(0, 0.5))
 pageTitle.TextXAlignment = Enum.TextXAlignment.Left
 
 local back = new("TextButton", {
 	Text = "< Back",
 	Font = Enum.Font.GothamBold,
-	TextSize = 16,
+	TextSize = math.floor(MH * 0.05),
 	TextColor3 = WHITE,
 	BackgroundColor3 = Color3.fromRGB(12, 36, 90),
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, 0, 0, 3),
-	Size = UDim2.fromOffset(78, 30),
-	AutoButtonColor = true,
+	AnchorPoint = V2(1, 0.5),
+	Position = UDim2.fromScale(0.925, 0.28),
+	Size = UDim2.fromScale(0.2, 0.1),
+	AutoButtonColor = false,
 }, page)
 new("UICorner", { CornerRadius = UDim.new(0, 8) }, back)
 
@@ -252,8 +263,8 @@ local function makeContent(key)
 		Name = key .. "Content",
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 44),
-		Size = UDim2.new(1, 0, 1, -44),
+		Position = UDim2.fromScale(0.075, 0.37),
+		Size = UDim2.fromScale(0.85, 0.57),
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 3,
@@ -265,58 +276,121 @@ local function makeContent(key)
 	return c
 end
 
-local function openPage(key, shownName)
-	home.Visible = false
-	page.Visible = true
+-- page transitions
+local busy = false
+local function goPage(key, shownName)
+	if busy then
+		return
+	end
+	busy = true
 	pageTitle.Text = shownName
 	for k, c in pairs(contents) do
 		c.Visible = (k == key)
 	end
+	tw(home, 0.25, { GroupTransparency = 1, Position = UDim2.fromScale(-0.06, 0) }, Quint, In)
+	task.wait(0.22)
+	home.Visible = false
+	page.Position = UDim2.fromScale(0.06, 0)
+	page.GroupTransparency = 1
+	page.Visible = true
+	tw(page, 0.4, { GroupTransparency = 0, Position = UDim2.fromScale(0, 0) })
+	task.wait(0.25)
+	busy = false
 end
 
-back.MouseButton1Click:Connect(function()
+local function goHome()
+	if busy then
+		return
+	end
+	busy = true
+	tw(page, 0.25, { GroupTransparency = 1, Position = UDim2.fromScale(0.06, 0) }, Quint, In)
+	task.wait(0.22)
 	page.Visible = false
+	home.Position = UDim2.fromScale(-0.06, 0)
+	home.GroupTransparency = 1
 	home.Visible = true
+	tw(home, 0.4, { GroupTransparency = 0, Position = UDim2.fromScale(0, 0) })
+	task.wait(0.25)
+	busy = false
+end
+
+back.MouseButton1Click:Connect(goHome)
+back.MouseEnter:Connect(function()
+	tw(back, 0.2, { BackgroundColor3 = Color3.fromRGB(25, 70, 160) })
+end)
+back.MouseLeave:Connect(function()
+	tw(back, 0.2, { BackgroundColor3 = Color3.fromRGB(12, 36, 90) })
 end)
 
-local NORMAL = ColorSequence.new(Color3.fromRGB(35, 85, 175), Color3.fromRGB(3, 12, 32))
-local HOVER = ColorSequence.new(Color3.fromRGB(55, 115, 215), Color3.fromRGB(6, 20, 50))
-
-local function categoryButton(text, key, shownName, order)
+-- category buttons: rectangular, blue bevel on top, dark navy body
+local rows = {}
+local function categoryButton(text, key, shownName, index)
 	makeContent(key)
-
-	-- row = gradient background only; the text lives in a separate button on top
-	local row = new("Frame", {
-		BackgroundColor3 = WHITE,
-		BorderSizePixel = 0,
-		LayoutOrder = order,
-		Size = UDim2.new(1, 0, 0, 56),
+	local baseY = 0.252 + (index - 1) * 0.1765
+	local row = new("CanvasGroup", {
+		BackgroundTransparency = 1,
+		AnchorPoint = V2(0.5, 0.5),
+		Position = UDim2.fromScale(0.078 + 0.4135, baseY + 0.087),
+		Size = UDim2.fromScale(0.827, 0.174),
 	}, home)
-	new("UICorner", { CornerRadius = UDim.new(0, 8) }, row)
-	local g = new("UIGradient", { Rotation = 90, Color = NORMAL }, row)
-	new("UIStroke", { Color = Color3.fromRGB(40, 100, 220), Thickness = 1, Transparency = 0.5 }, row)
+	local rs = new("UIScale", { Scale = 1 }, row)
+
+	local body = new("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }, row)
+	new("UIGradient", {
+		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(24, 58, 118)),
+			ColorSequenceKeypoint.new(0.22, Color3.fromRGB(2, 9, 24)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(1, 5, 15)),
+		}),
+	}, body)
+	-- right-side shadow like the reference
+	new("Frame", {
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0.15,
+		BorderSizePixel = 0,
+		AnchorPoint = V2(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.new(0.03, 0, 1, 0),
+	}, row)
+	-- hover highlight
+	local hl = new("Frame", {
+		BackgroundColor3 = Color3.fromRGB(70, 140, 255),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+	}, row)
 
 	local b = new("TextButton", {
 		BackgroundTransparency = 1,
 		Text = text,
 		Font = Enum.Font.GothamBold,
-		TextSize = 24,
+		TextSize = math.floor(MH * 0.125),
 		TextColor3 = WHITE,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		AutoButtonColor = false,
 		Size = UDim2.fromScale(1, 1),
 	}, row)
-	new("UIPadding", { PaddingLeft = UDim.new(0, 16) }, b)
+	new("UIPadding", { PaddingLeft = UDim.new(0.03, 0) }, b)
 
 	b.MouseEnter:Connect(function()
-		g.Color = HOVER
+		tw(hl, 0.25, { BackgroundTransparency = 0.84 })
 	end)
 	b.MouseLeave:Connect(function()
-		g.Color = NORMAL
+		tw(hl, 0.25, { BackgroundTransparency = 1 })
+		tw(rs, 0.2, { Scale = 1 })
+	end)
+	b.MouseButton1Down:Connect(function()
+		tw(rs, 0.12, { Scale = 0.97 })
+	end)
+	b.MouseButton1Up:Connect(function()
+		tw(rs, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
 	end)
 	b.MouseButton1Click:Connect(function()
-		openPage(key, shownName)
+		goPage(key, shownName)
 	end)
+
+	rows[#rows + 1] = row
 end
 
 categoryButton("FE shit", "FE", "FE", 1)
@@ -332,18 +406,52 @@ end)
 
 ---------------------------------------------------------------- intro sequence
 task.spawn(function()
-	setSub("by Jaxen", true)
-	tween(splash, 0.5, { GroupTransparency = 0 })
-	task.wait(1.8)
+	local sc = splash.S
+	sc.Scale = uiScale * 0.88
+	sTitle.TextTransparency = 1
+	sTitle.Position = UDim2.fromScale(0.5, 0.46)
 
-	tween(splash, 0.3, { GroupTransparency = 0.6 }).Completed:Wait()
-	setSub(messages[math.random(#messages)], false)
-	tween(splash, 0.3, { GroupTransparency = 0 })
-	task.wait(2.6)
+	-- panel pops in
+	tw(splash, 0.7, { GroupTransparency = 0 })
+	tw(sc, 1.0, { Scale = uiScale })
+	-- title slides up, line draws out, subtitle follows
+	tw(sTitle, 0.9, { TextTransparency = 0, Position = UDim2.fromScale(0.5, 0.41) }, Quint, Out, 0.15)
+	tw(sLine, 1.0, { Size = UDim2.new(0.7, 0, 0, 2) }, Quint, Out, 0.35)
+	task.wait(0.7)
+	showSub("by Jaxen", true)
+	task.wait(2.2)
 
-	tween(splash, 0.5, { GroupTransparency = 1 }).Completed:Wait()
+	-- swap to a random message
+	hideSub()
+	task.wait(0.35)
+	showSub(messages[math.random(#messages)], false)
+	task.wait(2.9)
+
+	-- splash leaves
+	tw(splash, 0.55, { GroupTransparency = 1 }, Quint, In)
+	tw(sc, 0.55, { Scale = uiScale * 1.07 }, Quint, In)
+	task.wait(0.6)
 	splash:Destroy()
 
+	-- menu enters
+	local msc = menu.S
+	msc.Scale = uiScale * 0.9
 	menu.Visible = true
-	tween(menu, 0.5, { GroupTransparency = 0 })
+	mTitle.TextTransparency = 1
+	mTitle.Position = UDim2.fromScale(0.075, 0.16)
+	for _, r in ipairs(rows) do
+		r.GroupTransparency = 1
+		r.Position = r.Position - UDim2.fromScale(0.08, 0)
+	end
+
+	tw(menu, 0.6, { GroupTransparency = 0 })
+	tw(msc, 0.9, { Scale = uiScale })
+	tw(mTitle, 0.8, { TextTransparency = 0, Position = UDim2.fromScale(0.075, 0.13) }, Quint, Out, 0.1)
+	tw(mLine, 0.9, { Size = UDim2.new(0.645, 0, 0, 2) }, Quint, Out, 0.25)
+	for i, r in ipairs(rows) do
+		tw(r, 0.7, {
+			GroupTransparency = 0,
+			Position = r.Position + UDim2.fromScale(0.08, 0),
+		}, Quint, Out, 0.3 + 0.09 * (i - 1))
+	end
 end)
