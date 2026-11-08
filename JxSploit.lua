@@ -1,5 +1,5 @@
 --[[
-	JxSploit UI by Jaxen
+	JxSploit UI by Jaxen  (v2)
 	Splash screen -> main menu (FE shit / TROLL / MISC)
 	Category pages are empty: add your own buttons inside the Content frames.
 	RightShift hides/shows the UI.
@@ -38,6 +38,10 @@ gui.Parent = root
 local WHITE = Color3.fromRGB(255, 255, 255)
 local BLUE = Color3.fromRGB(45, 110, 255)
 
+-- shrink the UI on small phone screens
+local cam = workspace.CurrentCamera
+local uiScale = cam and math.clamp(cam.ViewportSize.Y / 650, 0.6, 1) or 1
+
 local function new(class, props, parent)
 	local o = Instance.new(class)
 	for k, v in pairs(props) do
@@ -51,14 +55,6 @@ local function tween(o, t, props)
 	local tw = TweenService:Create(o, TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
 	tw:Play()
 	return tw
-end
-
-local function style(p)
-	new("UICorner", { CornerRadius = UDim.new(0, 34) }, p)
-	new("UIGradient", {
-		Rotation = 90,
-		Color = ColorSequence.new(Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 22, 52)),
-	}, p)
 end
 
 local function label(parent, text, size, pos, sz, anchor)
@@ -85,6 +81,68 @@ local function line(parent, pos, sz, anchor)
 	}, parent)
 end
 
+-- Panel = invisible CanvasGroup (handles fade + rounded clipping)
+--         + background frame with the gradient (ONLY the background gets the gradient)
+--         + blue glow frames. Content goes on top as normal children.
+local function makePanel(name, w, h)
+	local p = new("CanvasGroup", {
+		Name = name,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(w, h),
+		BackgroundTransparency = 1,
+		GroupTransparency = 1,
+	}, gui)
+	new("UICorner", { CornerRadius = UDim.new(0, 34) }, p)
+	new("UIScale", { Scale = uiScale }, p)
+
+	local bg = new("Frame", {
+		Name = "Bg",
+		BackgroundColor3 = WHITE,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+		ZIndex = 0,
+	}, p)
+	new("UIGradient", {
+		Rotation = 90,
+		Color = ColorSequence.new(Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 20, 48)),
+	}, bg)
+
+	-- top-left glow
+	local g1 = new("Frame", {
+		BackgroundColor3 = Color3.fromRGB(20, 90, 255),
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(0.35, 0.32),
+		ZIndex = 0,
+	}, p)
+	new("UIGradient", {
+		Rotation = 45,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.25),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	}, g1)
+
+	-- right edge glow
+	local g2 = new("Frame", {
+		BackgroundColor3 = Color3.fromRGB(0, 70, 190),
+		BorderSizePixel = 0,
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.fromScale(0.2, 1),
+		ZIndex = 0,
+	}, p)
+	new("UIGradient", {
+		Rotation = 0,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(1, 0.45),
+		}),
+	}, g2)
+
+	return p
+end
+
 ---------------------------------------------------------------- splash
 local messages = {
 	"How are you doing? I love u <3",
@@ -100,22 +158,14 @@ local messages = {
 	"DECODE: Tkhox sc cesmsnkv! :D",
 }
 
-local splash = new("CanvasGroup", {
-	Name = "Splash",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(420, 220),
-	BackgroundColor3 = WHITE,
-	GroupTransparency = 1,
-}, gui)
-style(splash)
+local splash = makePanel("Splash", 420, 220)
 
-label(splash, "JxSploit", 54, UDim2.fromScale(0.5, 0.38), UDim2.fromScale(0.9, 0.3), Vector2.new(0.5, 0.5))
-line(splash, UDim2.fromScale(0.5, 0.58), UDim2.new(0.7, 0, 0, 2), Vector2.new(0.5, 0.5))
+label(splash, "JxSploit", 54, UDim2.fromScale(0.5, 0.36), UDim2.fromScale(0.9, 0.3), Vector2.new(0.5, 0.5))
+line(splash, UDim2.fromScale(0.5, 0.56), UDim2.new(0.7, 0, 0, 2), Vector2.new(0.5, 0.5))
 
-local sub = label(splash, "", 20, UDim2.fromScale(0.5, 0.78), UDim2.fromScale(0.86, 0.3), Vector2.new(0.5, 0.5))
-local sideL = line(splash, UDim2.fromScale(0.05, 0.78), UDim2.new(0.25, 0, 0, 2), Vector2.new(0, 0.5))
-local sideR = line(splash, UDim2.fromScale(0.95, 0.78), UDim2.new(0.25, 0, 0, 2), Vector2.new(1, 0.5))
+local sub = label(splash, "", 20, UDim2.fromScale(0.5, 0.74), UDim2.fromScale(0.86, 0.3), Vector2.new(0.5, 0.5))
+local sideL = line(splash, UDim2.fromScale(0.05, 0.74), UDim2.new(0.25, 0, 0, 2), Vector2.new(0, 0.5))
+local sideR = line(splash, UDim2.fromScale(0.95, 0.74), UDim2.new(0.25, 0, 0, 2), Vector2.new(1, 0.5))
 
 local function setSub(text, flanked)
 	sub.Text = text
@@ -125,16 +175,8 @@ local function setSub(text, flanked)
 end
 
 ---------------------------------------------------------------- menu
-local menu = new("CanvasGroup", {
-	Name = "Menu",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(340, 300),
-	BackgroundColor3 = WHITE,
-	GroupTransparency = 1,
-	Visible = false,
-}, gui)
-style(menu)
+local menu = makePanel("Menu", 340, 300)
+menu.Visible = false
 
 -- drag handle (top strip)
 local handle = new("Frame", {
@@ -196,7 +238,7 @@ local back = new("TextButton", {
 	Font = Enum.Font.GothamBold,
 	TextSize = 16,
 	TextColor3 = WHITE,
-	BackgroundColor3 = Color3.fromRGB(12, 30, 70),
+	BackgroundColor3 = Color3.fromRGB(12, 36, 90),
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, 0, 0, 3),
 	Size = UDim2.fromOffset(78, 30),
@@ -237,30 +279,40 @@ back.MouseButton1Click:Connect(function()
 	home.Visible = true
 end)
 
+local NORMAL = ColorSequence.new(Color3.fromRGB(35, 85, 175), Color3.fromRGB(3, 12, 32))
+local HOVER = ColorSequence.new(Color3.fromRGB(55, 115, 215), Color3.fromRGB(6, 20, 50))
+
 local function categoryButton(text, key, shownName, order)
 	makeContent(key)
-	local b = new("TextButton", {
-		Text = text,
-		Font = Enum.Font.GothamBold,
-		TextSize = 26,
-		TextColor3 = WHITE,
-		TextXAlignment = Enum.TextXAlignment.Left,
+
+	-- row = gradient background only; the text lives in a separate button on top
+	local row = new("Frame", {
 		BackgroundColor3 = WHITE,
-		AutoButtonColor = false,
+		BorderSizePixel = 0,
 		LayoutOrder = order,
 		Size = UDim2.new(1, 0, 0, 56),
 	}, home)
-	new("UICorner", { CornerRadius = UDim.new(0, 6) }, b)
+	new("UICorner", { CornerRadius = UDim.new(0, 8) }, row)
+	local g = new("UIGradient", { Rotation = 90, Color = NORMAL }, row)
+	new("UIStroke", { Color = Color3.fromRGB(40, 100, 220), Thickness = 1, Transparency = 0.5 }, row)
+
+	local b = new("TextButton", {
+		BackgroundTransparency = 1,
+		Text = text,
+		Font = Enum.Font.GothamBold,
+		TextSize = 24,
+		TextColor3 = WHITE,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		AutoButtonColor = false,
+		Size = UDim2.fromScale(1, 1),
+	}, row)
 	new("UIPadding", { PaddingLeft = UDim.new(0, 16) }, b)
-	local g = new("UIGradient", {
-		Rotation = 90,
-		Color = ColorSequence.new(Color3.fromRGB(35, 85, 175), Color3.fromRGB(3, 12, 32)),
-	}, b)
+
 	b.MouseEnter:Connect(function()
-		g.Color = ColorSequence.new(Color3.fromRGB(55, 115, 215), Color3.fromRGB(6, 20, 50))
+		g.Color = HOVER
 	end)
 	b.MouseLeave:Connect(function()
-		g.Color = ColorSequence.new(Color3.fromRGB(35, 85, 175), Color3.fromRGB(3, 12, 32))
+		g.Color = NORMAL
 	end)
 	b.MouseButton1Click:Connect(function()
 		openPage(key, shownName)
