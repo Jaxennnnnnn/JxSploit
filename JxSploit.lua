@@ -844,7 +844,7 @@ do
 	local RS = game:GetService("ReplicatedStorage")
 
 	-- tweak these if needed
-	local AURA_COUNT = 6 -- lights in the ring
+	local AURA_COUNT = 5 -- lights in the ring
 	local AURA_RADIUS = 5 -- ring radius (studs)
 	local AURA_DEPTH = 6 -- how far UNDER the ground surface the lights are placed (0 = on the ground)
 	local AURA_MOVE_DIST = 8 -- re-place the aura once you are this far from where it was placed
@@ -852,6 +852,7 @@ do
 	local DELETE_CALLS = 6 -- DeleteProp fires per clear
 
 	local auraEnabled = false
+	local auraDelete = true -- ON: delete old lights and respawn as you move | OFF: leave them behind
 	local auraToken = 0
 	local auraBusy = false
 	local auraPlaced = false
@@ -967,7 +968,7 @@ do
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
 		local tool = hrp and auraEquip()
 		if hrp and tool then
-			if auraPlaced then
+			if auraPlaced and auraDelete then
 				auraClear()
 			end
 			local center = hrp.Position
@@ -986,7 +987,7 @@ do
 				local a = (i / AURA_COUNT) * math.pi * 2
 				local origin = center + Vector3.new(math.cos(a) * AURA_RADIUS, 0, math.sin(a) * AURA_RADIUS)
 				auraPlaceAt(tool, origin, params)
-				task.wait(0.08)
+				task.wait(0.12)
 			end
 			auraPlaced = true
 			auraCenter = center
@@ -1031,9 +1032,10 @@ do
 				while auraBusy do
 					task.wait(0.1)
 				end
-				if auraPlaced then
+				if auraPlaced and auraDelete then
 					auraClear()
 				end
+				auraPlaced = false
 				auraCenter = nil
 				local char = lp.Character
 				local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -1052,6 +1054,19 @@ do
 
 	featureHandlers.auralights = setAura
 	addFeature(contents.FE, "auralights", "Aura Lights", "Let the server know your all in power", 2)
+
+	-- option: delete old lights as you move (ON) or leave them behind (OFF)
+	featureHandlers.auradelete = function(on)
+		auraDelete = on
+	end
+	addFeature(
+		contents.FE,
+		"auradelete",
+		"Aura: Delete As You Move",
+		"ON: old lights are deleted and respawn under you. OFF: they stay where they were.",
+		3
+	)
+	setFeature("auradelete", true)
 end
 
 ---------------------------------------------------------------- toggle
