@@ -420,7 +420,7 @@ local joyBase = new("Frame", {
 	BackgroundColor3 = Color3.fromRGB(0, 12, 30),
 	BackgroundTransparency = 0.3,
 	AnchorPoint = V2(0, 1),
-	Position = UDim2.new(0, 70, 1, -60),
+	Position = UDim2.new(0, 70, 1, -18),
 	Size = UDim2.fromOffset(150, 150),
 	Active = true,
 }, flyUI)
@@ -434,6 +434,8 @@ local joyThumb = new("Frame", {
 	Size = UDim2.fromOffset(62, 62),
 }, joyBase)
 new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, joyThumb)
+local joyJ = label(joyThumb, "J", 34, UDim2.fromScale(0.5, 0.5), UDim2.fromScale(1, 1), V2(0.5, 0.5))
+joyJ.TextTransparency = 0.05
 
 local joyInput
 local function joyUpdate(input)
@@ -467,38 +469,87 @@ UIS.InputEnded:Connect(function(i)
 	end
 end)
 
-local function holdButton(text, y, setter)
+local function chevron(parent, down)
+	local holder = new("Frame", {
+		BackgroundTransparency = 1,
+		AnchorPoint = V2(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.4),
+		Size = UDim2.fromOffset(32, 20),
+	}, parent)
+	local function arm(x, rot)
+		local f = new("Frame", {
+			BackgroundColor3 = WHITE,
+			BorderSizePixel = 0,
+			AnchorPoint = V2(0.5, 0.5),
+			Position = UDim2.new(0.5, x, 0.5, 0),
+			Size = UDim2.fromOffset(19, 5),
+			Rotation = rot,
+		}, holder)
+		new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, f)
+	end
+	if down then
+		arm(-6, 45)
+		arm(6, -45)
+	else
+		arm(-6, -45)
+		arm(6, 45)
+	end
+end
+
+local function holdButton(text, y, down, setter)
 	local b = new("TextButton", {
-		Text = text,
-		Font = Enum.Font.GothamBold,
-		TextSize = 15,
-		TextColor3 = WHITE,
-		BackgroundColor3 = Color3.fromRGB(0, 12, 30),
-		BackgroundTransparency = 0.25,
+		Text = "",
+		BackgroundColor3 = WHITE,
 		AutoButtonColor = false,
 		AnchorPoint = V2(1, 1),
 		Position = UDim2.new(1, -230, 1, y),
-		Size = UDim2.fromOffset(78, 58),
+		Size = UDim2.fromOffset(76, 66),
 	}, flyUI)
-	new("UICorner", { CornerRadius = UDim.new(0.2, 0) }, b)
-	new("UIStroke", { Color = BLUE, Thickness = 2, Transparency = 0.4 }, b)
+	new("UICorner", { CornerRadius = UDim.new(0.28, 0) }, b)
+	new("UIGradient", {
+		Rotation = 90,
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 78, 165)),
+			ColorSequenceKeypoint.new(0.55, Color3.fromRGB(4, 16, 40)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(1, 7, 20)),
+		}),
+	}, b)
+	local stroke = new("UIStroke", { Color = Color3.fromRGB(60, 130, 255), Thickness = 2, Transparency = 0.35 }, b)
+
+	chevron(b, down)
+	local lbl = label(b, text, 11, UDim2.fromScale(0.5, 0.8), UDim2.fromScale(1, 0.25), V2(0.5, 0.5))
+	lbl.TextTransparency = 0.25
+
+	local hl = new("Frame", {
+		BackgroundColor3 = Color3.fromRGB(90, 160, 255),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+	}, b)
+	new("UICorner", { CornerRadius = UDim.new(0.28, 0) }, hl)
+
+	local sc = new("UIScale", { Scale = 1 }, b)
 	b.InputBegan:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
 			setter(true)
-			tw(b, 0.1, { BackgroundColor3 = Color3.fromRGB(25, 70, 160) })
+			tw(hl, 0.1, { BackgroundTransparency = 0.78 })
+			tw(stroke, 0.1, { Transparency = 0 })
+			tw(sc, 0.1, { Scale = 0.94 })
 		end
 	end)
 	b.InputEnded:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
 			setter(false)
-			tw(b, 0.2, { BackgroundColor3 = Color3.fromRGB(0, 12, 30) })
+			tw(hl, 0.25, { BackgroundTransparency = 1 })
+			tw(stroke, 0.25, { Transparency = 0.35 })
+			tw(sc, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
 		end
 	end)
 end
-holdButton("UP", -150, function(v)
+holdButton("UP", -148, false, function(v)
 	btnUp = v
 end)
-holdButton("DOWN", -80, function(v)
+holdButton("DOWN", -74, true, function(v)
 	btnDown = v
 end)
 
