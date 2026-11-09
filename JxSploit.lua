@@ -839,6 +839,221 @@ featureHandlers.flycars = setFly
 addFeature(contents.FE, "flycars", "Fly Cars", FLY_DESC, 1)
 addFeature(contents.TROLL, "flycars", "Fly Cars", FLY_DESC, 1)
 
+---------------------------------------------------------------- FEATURES: Aura Lights (PropMaker)
+do
+	local RS = game:GetService("ReplicatedStorage")
+
+	-- tweak these if needed
+	local AURA_COUNT = 6 -- lights in the ring
+	local AURA_RADIUS = 5 -- ring radius (studs)
+	local AURA_DEPTH = 6 -- how far UNDER the ground surface the lights are placed (0 = on the ground)
+	local AURA_MOVE_DIST = 8 -- re-place the aura once you are this far from where it was placed
+	local AURA_MIN_INTERVAL = 1.2 -- minimum seconds between re-places (anti-spam)
+	local DELETE_CALLS = 6 -- DeleteProp fires per clear
+
+	local auraEnabled = false
+	local auraToken = 0
+	local auraBusy = false
+	local auraPlaced = false
+	local auraCenter
+	local lastAura = 0
+
+	local function RE()
+		return RS:FindFirstChild("RE")
+	end
+
+	local function auraEquip()
+		local char = lp.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		if not hum then
+			return nil
+		end
+		if char:FindFirstChild("PropMaker") then
+			return char.PropMaker
+		end
+		local tool = lp.Backpack:FindFirstChild("PropMaker")
+		if not tool then
+			-- ask the server for the tool (same call the game uses)
+			local re = RE()
+			local fn = re and re:FindFirstChild("1Too1l")
+			if fn then
+				pcall(function()
+					fn:InvokeServer("PickingTools", "PropMaker")
+				end)
+			end
+			local t0 = os.clock()
+			repeat
+				task.wait(0.1)
+				tool = lp.Backpack:FindFirstChild("PropMaker") or char:FindFirstChild("PropMaker")
+			until tool or os.clock() - t0 > 2
+		end
+		if not tool then
+			-- fallback: copy from StarterPack (client-side copy, may not work on the server)
+			local sp = game:GetService("StarterPack"):FindFirstChild("PropMaker")
+			if sp then
+				tool = sp:Clone()
+				tool.Parent = lp.Backpack
+			end
+		end
+		if tool and tool.Parent ~= char then
+			hum:EquipTool(tool)
+		end
+		local t0 = os.clock()
+		repeat
+			task.wait(0.05)
+		until char:FindFirstChild("PropMaker") or os.clock() - t0 > 1.5
+		return char:FindFirstChild("PropMaker")
+	end
+
+	local function auraOpenMenu()
+		local re = RE()
+		local sel = re and re:FindFirstChild("1Clea1rTool1s")
+		if sel then
+			pcall(function()
+				sel:FireServer("OpenPropMenu")
+			end)
+		end
+		local remotes = RS:FindFirstChild("Remotes")
+		local tel = remotes and remotes:FindFirstChild("TelemetryClientInteraction")
+		if tel then
+			pcall(function()
+				tel:FireServer("filterClick", { name = "Lights", itemType = "Props" })
+			end)
+		end
+	end
+
+	local function auraPlaceAt(tool, origin, params)
+		local res = workspace:Raycast(origin, Vector3.new(0, -500, 0), params)
+		if not res then
+			return false
+		end
+		local re = RE()
+		local sel = re and re:FindFirstChild("1Clea1rTool1s")
+		local maker = tool:FindFirstChild("Tool_PropMake")
+		if not (sel and maker) then
+			return false
+		end
+		pcall(function()
+			sel:FireServer("RequestingPropName", "LightsSpotLightRed", "Lights")
+		end)
+		task.wait(0.05)
+		pcall(function()
+			maker:FireServer(res.Instance, res.Position - Vector3.new(0, AURA_DEPTH, 0))
+		end)
+		return true
+	end
+
+	local function auraClear()
+		local re = RE()
+		local props = re and re:FindFirstChild("Props")
+		if props then
+			for _ = 1, DELETE_CALLS do
+				pcall(function()
+					props:FireServer("DeleteProp")
+				end)
+				task.wait(0.05)
+			end
+		end
+		auraPlaced = false
+	end
+
+	local function auraCycle()
+		if auraBusy then
+			return
+		end
+		auraBusy = true
+		local char = lp.Character
+		local hrp = char and char:FindFirstChild("HumanoidRootPart")
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local tool = hrp and auraEquip()
+		if hrp and tool then
+			if auraPlaced then
+				auraClear()
+			end
+			local center = hrp.Position
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Exclude
+			local ignore = { char }
+			local seat = hum and hum.SeatPart
+			if seat then
+				table.insert(ignore, seat:FindFirstAncestorOfClass("Model") or seat)
+			end
+			params.FilterDescendantsInstances = ignore
+			pcall(function()
+				params.RespectCanCollide = true
+			end)
+			for i = 1, AURA_COUNT do
+				local a = (i / AURA_COUNT) * math.pi * 2
+				local origin = center + Vector3.new(math.cos(a) * AURA_RADIUS, 0, math.sin(a) * AURA_RADIUS)
+				auraPlaceAt(tool, origin, params)
+				task.wait(0.08)
+			end
+			auraPlaced = true
+			auraCenter = center
+			lastAura = os.clock()
+		end
+		auraBusy = false
+	end
+
+	local function setAura(on)
+		auraEnabled = on
+		auraToken += 1
+		local token = auraToken
+		if on then
+			task.spawn(function()
+				local tool = auraEquip()
+				if not tool then
+					warn("[JxSploit] Aura Lights: couldn't get PropMaker")
+					setFeature("auralights", false)
+					return
+				end
+				if token ~= auraToken then
+					return
+				end
+				auraOpenMenu()
+				task.wait(0.3)
+				auraCycle()
+				while auraEnabled and token == auraToken do
+					task.wait(0.25)
+					local char = lp.Character
+					local hrp = char and char:FindFirstChild("HumanoidRootPart")
+					if
+						hrp
+						and (not auraCenter or (hrp.Position - auraCenter).Magnitude > AURA_MOVE_DIST)
+						and os.clock() - lastAura > AURA_MIN_INTERVAL
+					then
+						auraCycle()
+					end
+				end
+			end)
+		else
+			task.spawn(function()
+				while auraBusy do
+					task.wait(0.1)
+				end
+				if auraPlaced then
+					auraClear()
+				end
+				auraCenter = nil
+				local char = lp.Character
+				local hum = char and char:FindFirstChildOfClass("Humanoid")
+				if hum then
+					hum:UnequipTools()
+				end
+			end)
+		end
+		print("[JxSploit] Aura Lights " .. (on and "ON" or "OFF"))
+	end
+
+	gui.Destroying:Connect(function()
+		auraEnabled = false
+		auraToken += 1
+	end)
+
+	featureHandlers.auralights = setAura
+	addFeature(contents.FE, "auralights", "Aura Lights", "Let the server know your all in power", 2)
+end
+
 ---------------------------------------------------------------- toggle
 UIS.InputBegan:Connect(function(i, gpe)
 	if not gpe and i.KeyCode == Enum.KeyCode.RightShift then
