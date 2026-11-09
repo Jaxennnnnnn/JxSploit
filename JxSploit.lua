@@ -141,10 +141,10 @@ end
 ---------------------------------------------------------------- splash (identical layout to reference)
 local messages = {
 	"How are you doing? I love u <3",
-	"Oxide? More like Ox-ide-n't :D",
+	"Oxide? More like SUICI- :D",
 	"did you know Jaxen is such a cooool person",
 	"Did you know? Wait i forgot 1 sec",
-	"Jaxen loves attention seeking,\nbest script to get it.",
+	"Jaxen loves attention seeking,/nbest script to get it.",
 	"Im so inlove with you~ your so inlove with mee",
 	"I JUST SHIT MY PAAANTS",
 	"did you know? Making fun of peoples looks\nIS NOT FUNNY.",
