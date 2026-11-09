@@ -1,8 +1,5 @@
 --[[
-	JxSploit UI by Jaxen  (v3)
-	Splash -> main menu (FE shit / TROLL / MISC)
-	Category pages are empty: add your own buttons inside the Content frames.
-	RightShift hides/shows the UI.
+	JXSPLOIT BY JAXEN :D!
 ]]
 
 local Players = game:GetService("Players")
@@ -144,7 +141,7 @@ local messages = {
 	"Oxide? More like SUICI- :D",
 	"did you know Jaxen is such a cooool person",
 	"Did you know? Wait i forgot 1 sec",
-	"Jaxen loves attention seeking,/nbest script to get it.",
+	"Jaxen loves attention seeking,\nbest script to get it.",
 	"Im so inlove with you~ your so inlove with mee",
 	"I JUST SHIT MY PAAANTS",
 	"did you know? Making fun of peoples looks\nIS NOT FUNNY.",
