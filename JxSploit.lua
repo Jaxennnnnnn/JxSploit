@@ -1,5 +1,8 @@
 --[[
-	JXSPLOIT BY JAXEN :D!
+	JxSploit UI by Jaxen  (v3)
+	Splash -> main menu (FE shit / TROLL / MISC)
+	Category pages are empty: add your own buttons inside the Content frames.
+	RightShift hides/shows the UI.
 ]]
 
 local Players = game:GetService("Players")
@@ -393,6 +396,330 @@ end
 categoryButton("FE shit", "FE", "FE", 1)
 categoryButton("TROLL", "TROLL", "TROLL", 2)
 categoryButton("MISC", "MISC", "MISC", 3)
+
+---------------------------------------------------------------- FEATURES: Fly Cars
+local CAS = game:GetService("ContextActionService")
+
+local FLY_SPEED = 95
+local flyEnabled = false
+local flyConn
+local flySeat
+local flyVel = Vector3.zero
+local btnUp, btnDown, spaceUp = false, false, false
+local joyVec = Vector2.zero
+
+-- on-screen controls (touch): joystick bottom-left, UP/DOWN above the jump button
+local flyUI = new("Frame", {
+	Name = "FlyControls",
+	BackgroundTransparency = 1,
+	Size = UDim2.fromScale(1, 1),
+	Visible = false,
+}, gui)
+
+local joyBase = new("Frame", {
+	BackgroundColor3 = Color3.fromRGB(0, 12, 30),
+	BackgroundTransparency = 0.3,
+	AnchorPoint = V2(0, 1),
+	Position = UDim2.new(0, 70, 1, -60),
+	Size = UDim2.fromOffset(150, 150),
+	Active = true,
+}, flyUI)
+new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, joyBase)
+new("UIStroke", { Color = BLUE, Thickness = 2, Transparency = 0.4 }, joyBase)
+local joyThumb = new("Frame", {
+	BackgroundColor3 = BLUE,
+	BackgroundTransparency = 0.15,
+	AnchorPoint = V2(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(62, 62),
+}, joyBase)
+new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, joyThumb)
+
+local joyInput
+local function joyUpdate(input)
+	local center = joyBase.AbsolutePosition + joyBase.AbsoluteSize / 2
+	local delta = Vector2.new(input.Position.X, input.Position.Y) - center
+	local radius = joyBase.AbsoluteSize.X / 2
+	local m = math.min(delta.Magnitude, radius)
+	local dir = delta.Magnitude > 0 and delta.Unit or Vector2.zero
+	joyVec = dir * (m / radius)
+	joyThumb.Position = UDim2.new(0.5, dir.X * m, 0.5, dir.Y * m)
+end
+local function joyReset()
+	joyInput = nil
+	joyVec = Vector2.zero
+	tw(joyThumb, 0.15, { Position = UDim2.fromScale(0.5, 0.5) })
+end
+joyBase.InputBegan:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+		joyInput = i
+		joyUpdate(i)
+	end
+end)
+UIS.InputChanged:Connect(function(i)
+	if joyInput and i == joyInput then
+		joyUpdate(i)
+	end
+end)
+UIS.InputEnded:Connect(function(i)
+	if joyInput and i == joyInput then
+		joyReset()
+	end
+end)
+
+local function holdButton(text, y, setter)
+	local b = new("TextButton", {
+		Text = text,
+		Font = Enum.Font.GothamBold,
+		TextSize = 15,
+		TextColor3 = WHITE,
+		BackgroundColor3 = Color3.fromRGB(0, 12, 30),
+		BackgroundTransparency = 0.25,
+		AutoButtonColor = false,
+		AnchorPoint = V2(1, 1),
+		Position = UDim2.new(1, -230, 1, y),
+		Size = UDim2.fromOffset(78, 58),
+	}, flyUI)
+	new("UICorner", { CornerRadius = UDim.new(0.2, 0) }, b)
+	new("UIStroke", { Color = BLUE, Thickness = 2, Transparency = 0.4 }, b)
+	b.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+			setter(true)
+			tw(b, 0.1, { BackgroundColor3 = Color3.fromRGB(25, 70, 160) })
+		end
+	end)
+	b.InputEnded:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+			setter(false)
+			tw(b, 0.2, { BackgroundColor3 = Color3.fromRGB(0, 12, 30) })
+		end
+	end)
+end
+holdButton("UP", -150, function(v)
+	btnUp = v
+end)
+holdButton("DOWN", -80, function(v)
+	btnDown = v
+end)
+
+-- vehicle GUI hiding: anything that turns on after you sit gets hidden, and comes back when you leave
+local PlayerGui = lp:WaitForChild("PlayerGui")
+local EXCLUDE = { JxSploit = true, TouchGui = true }
+local guiSnap, hiddenGuis = {}, {}
+
+local function snapshotGuis()
+	for _, g in ipairs(PlayerGui:GetChildren()) do
+		if g:IsA("ScreenGui") then
+			guiSnap[g] = g.Enabled
+		end
+	end
+end
+
+local function hideNewGuis()
+	for _, g in ipairs(PlayerGui:GetChildren()) do
+		if g:IsA("ScreenGui") and not EXCLUDE[g.Name] and g.Enabled and guiSnap[g] ~= true then
+			hiddenGuis[g] = true
+			g.Enabled = false
+			print("[JxSploit] hid vehicle GUI: " .. g.Name)
+		end
+	end
+end
+
+local function restoreGuis()
+	for g in pairs(hiddenGuis) do
+		if g.Parent then
+			g.Enabled = true
+		end
+	end
+	hiddenGuis = {}
+end
+
+-- seat enter / leave
+local function enterSeatState(seat)
+	flySeat = seat
+	local root = seat.AssemblyRootPart or seat
+	flyVel = root.AssemblyLinearVelocity
+	flyUI.Visible = UIS.TouchEnabled
+	CAS:BindActionAtPriority("JxFlyUp", function(_, state)
+		spaceUp = (state == Enum.UserInputState.Begin)
+		return Enum.ContextActionResult.Sink
+	end, false, Enum.ContextActionPriority.High.Value, Enum.KeyCode.Space)
+end
+
+local function leaveSeatState()
+	flySeat = nil
+	flyUI.Visible = false
+	joyReset()
+	btnUp, btnDown, spaceUp = false, false, false
+	CAS:UnbindAction("JxFlyUp")
+	restoreGuis()
+end
+
+-- input -> world direction (camera relative; looking up + forward = climb)
+local function moveDir()
+	local c = workspace.CurrentCamera
+	if not c then
+		return Vector3.zero
+	end
+	local cf = c.CFrame
+	local fwd, right, vert = 0, 0, 0
+	if not UIS:GetFocusedTextBox() then
+		if UIS:IsKeyDown(Enum.KeyCode.W) then fwd += 1 end
+		if UIS:IsKeyDown(Enum.KeyCode.S) then fwd -= 1 end
+		if UIS:IsKeyDown(Enum.KeyCode.D) then right += 1 end
+		if UIS:IsKeyDown(Enum.KeyCode.A) then right -= 1 end
+		if UIS:IsKeyDown(Enum.KeyCode.E) or spaceUp then vert += 1 end
+		if UIS:IsKeyDown(Enum.KeyCode.Q) or UIS:IsKeyDown(Enum.KeyCode.LeftShift) then vert -= 1 end
+	end
+	fwd += -joyVec.Y
+	right += joyVec.X
+	if btnUp then vert += 1 end
+	if btnDown then vert -= 1 end
+
+	local d = cf.LookVector * fwd + cf.RightVector * right + Vector3.yAxis * vert * 0.8
+	if d.Magnitude > 1 then
+		d = d.Unit
+	end
+	return d
+end
+
+local function stepFlight(dt, seat)
+	local root = seat.AssemblyRootPart or seat
+	if root.Anchored then
+		return
+	end
+	local d = moveDir()
+	flyVel = flyVel:Lerp(d * FLY_SPEED, math.clamp(dt * 3.5, 0, 1))
+	root.AssemblyLinearVelocity = flyVel
+	root.AssemblyAngularVelocity = Vector3.zero
+
+	-- orientation: face the direction you're heading, nose tilts with climb/dive
+	local sc = seat.CFrame
+	local flatLook = Vector3.new(sc.LookVector.X, 0, sc.LookVector.Z)
+	local heading = flatLook.Magnitude > 0.01 and flatLook.Unit or Vector3.new(0, 0, -1)
+	local hv = Vector3.new(d.X, 0, d.Z)
+	if hv.Magnitude > 0.15 then
+		heading = hv.Unit
+	end
+	local pitch = math.rad(math.clamp(flyVel.Y / FLY_SPEED * 25, -25, 25))
+	local goal = CFrame.lookAt(sc.Position, sc.Position + heading) * CFrame.Angles(pitch, 0, 0)
+	local newSeat = sc:Lerp(goal, math.clamp(dt * 5, 0, 1))
+	root.CFrame = newSeat * (sc:Inverse() * root.CFrame)
+end
+
+local lastSnap = 0
+local function flyTick(dt)
+	local char = lp.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local seat = hum and hum.SeatPart
+	if seat and (seat:IsA("VehicleSeat") or seat:IsA("Seat")) then
+		if flySeat ~= seat then
+			enterSeatState(seat)
+		end
+		hideNewGuis()
+		stepFlight(dt, seat)
+	else
+		if flySeat then
+			leaveSeatState()
+		end
+		lastSnap += dt
+		if lastSnap > 0.4 then
+			lastSnap = 0
+			snapshotGuis()
+		end
+	end
+end
+
+local function setFly(on)
+	flyEnabled = on
+	if on then
+		snapshotGuis()
+		if not flyConn then
+			flyConn = RunService.Heartbeat:Connect(flyTick)
+		end
+	else
+		if flyConn then
+			flyConn:Disconnect()
+			flyConn = nil
+		end
+		if flySeat then
+			leaveSeatState()
+		end
+	end
+	print("[JxSploit] Fly Cars " .. (on and "ON" or "OFF"))
+end
+
+gui.Destroying:Connect(function()
+	setFly(false)
+end)
+
+---------------------------------------------------------------- feature buttons (shared state between FE + TROLL)
+local featureViews, featureHandlers, featureState = {}, {}, {}
+
+local function setFeature(key, on)
+	featureState[key] = on
+	for _, v in ipairs(featureViews[key] or {}) do
+		v(on)
+	end
+	local h = featureHandlers[key]
+	if h then
+		task.spawn(h, on)
+	end
+end
+
+local ROW_OFF = Color3.fromRGB(3, 14, 36)
+local ROW_ON = Color3.fromRGB(8, 34, 86)
+
+local function addFeature(content, key, title, desc, order)
+	local row = new("TextButton", {
+		Text = "",
+		AutoButtonColor = false,
+		BackgroundColor3 = ROW_OFF,
+		LayoutOrder = order,
+		Size = UDim2.new(1, -8, 0, 80),
+	}, content)
+	new("UICorner", { CornerRadius = UDim.new(0.1, 0) }, row) -- 10% smoothed edges
+	local stroke = new("UIStroke", { Color = Color3.fromRGB(35, 90, 215), Thickness = 1.5, Transparency = 0.65 }, row)
+
+	local t = label(row, title, 21, UDim2.fromOffset(14, 8), UDim2.new(1, -90, 0, 26))
+	t.TextXAlignment = Enum.TextXAlignment.Left
+
+	local d = label(row, desc, 14, UDim2.fromOffset(14, 36), UDim2.new(1, -28, 0, 40))
+	d.Font = Enum.Font.Gotham
+	d.TextTransparency = 0.45 -- low opacity description
+	d.TextXAlignment = Enum.TextXAlignment.Left
+	d.TextYAlignment = Enum.TextYAlignment.Top
+
+	local pill = new("Frame", {
+		BackgroundColor3 = Color3.fromRGB(25, 35, 58),
+		AnchorPoint = V2(1, 0),
+		Position = UDim2.new(1, -12, 0, 10),
+		Size = UDim2.fromOffset(54, 22),
+	}, row)
+	new("UICorner", { CornerRadius = UDim.new(0.5, 0) }, pill)
+	local pillText = label(pill, "OFF", 12, UDim2.fromScale(0, 0), UDim2.fromScale(1, 1))
+
+	featureViews[key] = featureViews[key] or {}
+	table.insert(featureViews[key], function(on)
+		pillText.Text = on and "ON" or "OFF"
+		tw(row, 0.3, { BackgroundColor3 = on and ROW_ON or ROW_OFF })
+		tw(pill, 0.3, { BackgroundColor3 = on and BLUE or Color3.fromRGB(25, 35, 58) })
+		tw(stroke, 0.3, { Transparency = on and 0.15 or 0.65 })
+	end)
+
+	row.MouseButton1Down:Connect(function()
+		tw(row, 0.1, { BackgroundColor3 = Color3.fromRGB(14, 50, 115) })
+	end)
+	row.MouseButton1Click:Connect(function()
+		setFeature(key, not featureState[key])
+	end)
+	return row
+end
+
+local FLY_DESC = "Soo you remember those flying tesla cars? Yeah lets turn your car into that! :D"
+featureHandlers.flycars = setFly
+addFeature(contents.FE, "flycars", "Fly Cars", FLY_DESC, 1)
+addFeature(contents.TROLL, "flycars", "Fly Cars", FLY_DESC, 1)
 
 ---------------------------------------------------------------- toggle
 UIS.InputBegan:Connect(function(i, gpe)
