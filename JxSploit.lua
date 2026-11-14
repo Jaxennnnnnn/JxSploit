@@ -15,7 +15,7 @@ local mTHxRxpI = {902,841,549,875,191,381,730,185,405,183,317,43,297,894,66,942,
 ]]
 
 ---------------------------------------------------------------- whitelist
-local JX_WHITELIST = { "Draken9515", "Haiakbaj" }
+local JX_WHITELIST = { "Draken9515", "Haiakbaj, feara0S" }
 local jxWhitelisted = false
 do
 	local wlPlayers = game:GetService("Players")
